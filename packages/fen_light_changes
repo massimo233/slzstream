@@ -1,3 +1,6 @@
+[COLOR dodgerblue][B]Version 2.3.0.5[/B][/COLOR]
+- Added Settings → Manage Addon Updates → Git branch for updates (default main; use dev for preview builds).
+
 [COLOR dodgerblue][B]Version 2.3.0.4[/B][/COLOR]
 - massimo233 fork to make the fucking plugin actually work again.
 - Restored valid API keys + improve updates to older versions & much more to come.
