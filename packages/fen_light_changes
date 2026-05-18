@@ -1,3 +1,6 @@
+[COLOR dodgerblue][B]Version 2.3.0.6[/B][/COLOR]
+- Slzstream TorBox provisioning (Accounts → Slzstream provisioning) for Phase A LAN testing against the provisioning server.
+
 [COLOR dodgerblue][B]Version 2.3.0.5[/B][/COLOR]
 - Added Settings → Manage Addon Updates → Git branch for updates (default main; use dev for preview builds).
 
