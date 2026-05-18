@@ -1,3 +1,6 @@
+[COLOR dodgerblue][B]Version 2.3.0.8[/B][/COLOR]
+- Fix Slzstream provisioning progress dialog on LibreELEC.
+
 [COLOR dodgerblue][B]Version 2.3.0.7[/B][/COLOR]
 - Slzstream provisioning: 6-digit code flow; operator fulfills via admin API; Kodi polls and applies TorBox key.
 
