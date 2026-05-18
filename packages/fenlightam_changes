@@ -1,3 +1,6 @@
+[COLOR dodgerblue][B]Version 2.3.0.7[/B][/COLOR]
+- Slzstream provisioning: 6-digit code flow; operator fulfills via admin API; Kodi polls and applies TorBox key.
+
 [COLOR dodgerblue][B]Version 2.3.0.6[/B][/COLOR]
 - Slzstream TorBox provisioning (Accounts → Slzstream provisioning) for Phase A LAN testing against the provisioning server.
 
