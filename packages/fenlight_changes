@@ -1,3 +1,6 @@
+[COLOR dodgerblue][B]Version 3.0.0[/B][/COLOR]
+- Slzstream stable: TorBox provisioning via 6-digit code, optional self-signed SSL, and Git branch selection for updates (main/dev).
+
 [COLOR dodgerblue][B]Version 2.3.0.9[/B][/COLOR]
 - Slzstream provisioning: optional Allow self-signed SSL for HTTPS VPS with self-signed certificates.
 
