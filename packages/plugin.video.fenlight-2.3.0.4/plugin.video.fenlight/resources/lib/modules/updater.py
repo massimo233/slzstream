@@ -293,10 +293,6 @@ def _enable_dependency_addons(addon_ids):
 
 def _verify_sevenplus_runtime(installed):
 	from modules import sevenplus
-	sevenplus.bootstrap_runtime()
-	if sevenplus.runtime_ready(force=True):
-		return installed, []
-	sevenplus.bootstrap_runtime()
 	if sevenplus.runtime_ready(force=True):
 		return installed, []
 	logger('Fen Light 7plus Dependency Error', 'SlyGuy Python module failed to load after install')
@@ -311,7 +307,6 @@ def install_bundled_dependencies(silent=False, force=False):
 	if all(_dependency_ready(dep, addons_path) for dep in BUNDLED_DEPENDENCIES) and not force:
 		_enable_dependency_addons([dep['id'] for dep in BUNDLED_DEPENDENCIES])
 		kodi_utils.update_local_addons()
-		sevenplus.bootstrap_runtime()
 		if sevenplus.runtime_ready(force=True):
 			kodi_utils.notification('7plus components ready', 3500)
 			return {'success': True, 'installed': [], 'failed': []}

@@ -1,6 +1,11 @@
 [COLOR darkgoldenrod]GOD BLESS HIM AND KEEP HIM SAFE.[/COLOR]
 
 
+[COLOR dodgerblue][B]Version 3.0.8[/B][/COLOR]
+- Fixed 7plus infinite recursion crash in runtime bootstrap.
+- Patched SlyGuy to skip repository.slyguy requirement that broke the proxy service.
+- 7plus menu links now route through FenLightAM before dispatch.
+
 [COLOR dodgerblue][B]Version 3.0.7[/B][/COLOR]
 - FenLightAM updates no longer install 7plus during the update itself; you are prompted to install components after a successful update.
 - Removed all manual zip install messaging; failed updates tell you to retry Check For Updates.

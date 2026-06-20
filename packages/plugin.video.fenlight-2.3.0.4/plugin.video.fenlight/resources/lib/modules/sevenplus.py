@@ -33,8 +33,11 @@ def bootstrap_runtime():
 		modules_path = _addon_modules_path(addon_id)
 		if k.path_exists(modules_path) and modules_path not in sys.path:
 			sys.path.insert(0, modules_path)
+	sevenplus_path = os.path.join(ADDONS_PATH, ADDON_7PLUS, 'resources', 'lib')
+	if k.path_exists(sevenplus_path) and sevenplus_path not in sys.path:
+		sys.path.insert(0, sevenplus_path)
 	os.environ['ADDON_ID'] = ADDON_7PLUS
-	return runtime_ready()
+	return True
 
 
 def runtime_ready(force=False):
@@ -133,10 +136,10 @@ def _load_plugin():
 def dispatch(params):
 	if not all(_dependency_ready(dep) for dep in BUNDLED_DEPENDENCIES):
 		return install_dependencies()
-	if not bootstrap_runtime():
+	if not runtime_ready():
 		return install_dependencies(retry=True)
-	url = build_slyguy_url(params)
 	_patch_build_url()
+	url = build_slyguy_url(params)
 	try:
 		_load_plugin().plugin.dispatch(url)
 	except Exception as e:
@@ -162,8 +165,7 @@ def install_dependencies(retry=False):
 	if not retry and not k.confirm_dialog(heading=heading, text=text):
 		return
 	status = updater.install_bundled_dependencies(silent=False, force=retry)
-	runtime_ready(force=True)
-	if status.get('success') and addons_installed():
+	if status.get('success') and runtime_ready(force=True) and addons_installed():
 		k.notification('7plus components ready', 3500)
 		return dispatch({'mode': 'sevenplus.dispatch'})
 	text = 'Could not install all 7plus components.'

@@ -69,19 +69,5 @@ def check_updates(force=False):
 
 
 def check_repo():
-    addon = get_addon(REPO_ADDON_ID, install=True, required=True)
-    update_time = settings.getDict('_updates', {}).get(REPO_ADDON_ID)
-    if not update_time or addon.getAddonInfo('version') != update_time[0] or time() < update_time[1] + UPDATE_TIME_LIMIT:
-        return
-
-    log.info('Repo: {} requires force update'.format(REPO_ADDON_ID))
-
-    addon_path = xbmc.translatePath(addon.getAddonInfo('path'))
-
-    with Session(timeout=15) as session:
-        session.chunked_dl('{0}/.repo/{1}/{1}/addon.xml'.format(REPO_DOMAIN, REPO_ADDON_ID), os.path.join(addon_path, 'addon.xml.downloading'))
-        safe_copy(os.path.join(addon_path, 'addon.xml.downloading'), os.path.join(addon_path, 'addon.xml'), del_src=True)
-        session.chunked_dl('{0}/.repo/{1}/{1}/icon.png'.format(REPO_DOMAIN, REPO_ADDON_ID), os.path.join(addon_path, 'icon.png.downloading'))
-        safe_copy(os.path.join(addon_path, 'icon.png.downloading'), os.path.join(addon_path, 'icon.png'), del_src=True)
-
-    xbmc.executebuiltin('UpdateLocalAddons')
+	# Slzstream bundle: repository.slyguy is not required.
+	return
