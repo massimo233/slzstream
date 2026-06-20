@@ -182,6 +182,8 @@ def update_addon(new_version, action, show_after_action=True):
 	kodi_utils.update_local_addons()
 	kodi_utils.disable_enable_addon()
 	kodi_utils.update_kodi_addons_db()
+	from caches.navigator_cache import navigator_cache
+	navigator_cache.sync_default_menus(notify=True)
 	install_bundled_dependencies(silent=True)
 	kodi_utils.refresh_widgets()
 

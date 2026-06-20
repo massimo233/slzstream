@@ -107,6 +107,10 @@ class OnUpdateChanges:
 			'You may need to re-authorize Trakt and TMDb accounts after this update.'
 		kodi_utils.ok_dialog(heading='FenLight AM Fork Update', text=text)
 
+	def sync_navigator_menus(self):
+		from caches.navigator_cache import navigator_cache
+		navigator_cache.sync_default_menus(notify=True)
+
 	def refresh_addon_keys(self):
 		# For update 2.2.01 - 03
 		from caches.trakt_cache import clear_all_trakt_cache_data

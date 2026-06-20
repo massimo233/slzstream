@@ -162,6 +162,61 @@ class NavigatorCache:
 			used_list = NavigatorCache.main_menus[list_name]
 		return used_list
 
+	def _menu_item_key(self, item):
+		return (item.get('mode'), item.get('action'), item.get('name'))
+
+	def _merge_menu_list(self, current, target):
+		key = self._menu_item_key
+		current_keys = {key(i) for i in current}
+		missing = [i for i in target if key(i) not in current_keys]
+		if not missing:
+			return current
+		merged = list(current)
+		for item in missing:
+			target_idx = target.index(item)
+			insert_at = len(merged)
+			for prev_idx in range(target_idx - 1, -1, -1):
+				prev_key = key(target[prev_idx])
+				for idx, existing in enumerate(merged):
+					if key(existing) == prev_key:
+						insert_at = idx + 1
+						break
+				else:
+					continue
+				break
+			merged.insert(insert_at, item)
+		return merged
+
+	def sync_default_menus(self, notify=False):
+		from modules import kodi_utils
+		changed = False
+		added_names = []
+		for list_name, target_list in self.main_menus.items():
+			default = self.get_list(list_name, 'default')
+			if not default:
+				self.set_list(list_name, 'default', list(target_list))
+				changed = True
+				if list_name == 'RootList':
+					added_names.extend([i.get('name') for i in target_list])
+				continue
+			merged_default = self._merge_menu_list(default, target_list)
+			if merged_default != default:
+				self.set_list(list_name, 'default', merged_default)
+				changed = True
+				for item in merged_default:
+					if item not in default and item.get('name'):
+						added_names.append(item.get('name'))
+			edited = self.get_list(list_name, 'edited')
+			if edited:
+				merged_edited = self._merge_menu_list(edited, target_list)
+				if merged_edited != edited:
+					self.set_list(list_name, 'edited', merged_edited)
+					changed = True
+		if changed and notify:
+			label = added_names[0] if len(added_names) == 1 else 'New menu items'
+			kodi_utils.notification('%s added to FenLightAM menu' % label, 3500)
+		return changed
+
 	def rebuild_database(self):
 		dbcon = connect_database('navigator_db')
 		main_items = NavigatorCache.main_menus.items()

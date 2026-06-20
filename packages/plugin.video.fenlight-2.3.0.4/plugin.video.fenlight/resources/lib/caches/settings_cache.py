@@ -590,5 +590,6 @@ def default_settings():
 {'setting_id': 'updatechecks.force_fork_api_keys', 'setting_type': 'string', 'setting_default': 'false'},
 {'setting_id': 'updatechecks.migrate_update_repo', 'setting_type': 'string', 'setting_default': 'false'},
 {'setting_id': 'updatechecks.refresh_addon_keys', 'setting_type': 'string', 'setting_default': 'false'},
-{'setting_id': 'updatechecks.show_fork_update_summary', 'setting_type': 'string', 'setting_default': 'false'}
+{'setting_id': 'updatechecks.show_fork_update_summary', 'setting_type': 'string', 'setting_default': 'false'},
+{'setting_id': 'updatechecks.sync_navigator_menus', 'setting_type': 'string', 'setting_default': 'false'}
 	]
