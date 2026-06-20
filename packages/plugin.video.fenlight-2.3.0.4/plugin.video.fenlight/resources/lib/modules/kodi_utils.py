@@ -130,7 +130,7 @@ def get_icon(image_name, image_folder='icons', image_type='png'):
 		return translate_path(local_icon)
 	username = get_property('fenlight.update.username') or 'massimo233'
 	location = (get_property('fenlight.update.location') or 'Slzstream.github.io').replace('/packages', '').strip('/')
-	branch = get_property('fenlight.update.branch') or 'main'
+	branch = get_property('fenlight.update.branch') or 'dev'
 	return 'https://raw.githubusercontent.com/%s/%s/%s/packages/media/%s/%s.%s' \
 			% (username, location, branch, image_folder, image_name, image_type)
 
@@ -354,18 +354,18 @@ def replace_window(params, block=False):
 	if isinstance(params, dict): params = build_url(params)
 	return execute_builtin('ReplaceWindow(Videos,%s)' % params, block)
 
-def disable_enable_addon(addon_name='plugin.video.fenlight'):
+def set_addon_enabled(addon_name, enabled):
 	import json
 	try:
-		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': False}}))
-		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': True}}))
+		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': bool(enabled)}}))
 	except: pass
 
+def disable_enable_addon(addon_name='plugin.video.fenlight'):
+	set_addon_enabled(addon_name, False)
+	set_addon_enabled(addon_name, True)
+
 def enable_addon(addon_name):
-	import json
-	try:
-		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': True}}))
-	except: pass
+	set_addon_enabled(addon_name, True)
 
 def update_local_addons():
 	execute_builtin('UpdateLocalAddons', True)

@@ -47,6 +47,7 @@ class SyncSettings:
 
 class OnUpdateChanges:
 	def run(self):
+		if kodi_utils.get_property('fenlight.updating') == 'true': return
 		kodi_utils.logger('Fen Light', 'OnUpdateChanges Service Starting')
 		try:
 			for method in list(filter(lambda x: x[0] != 'run', inspect.getmembers(OnUpdateChanges, predicate=inspect.isfunction))):
@@ -68,6 +69,13 @@ class OnUpdateChanges:
 			updated = True
 		if updated:
 			kodi_utils.notification('FenLight AM update source refreshed', 3000)
+
+	def migrate_update_branch(self):
+		location = (get_setting('fenlight.update.location') or get_setting('update.location') or '').replace('/packages', '').strip('/')
+		branch = (get_setting('fenlight.update.branch') or get_setting('update.branch') or 'main').strip()
+		if location == 'Slzstream.github.io' and branch == 'main':
+			set_setting('update.branch', 'dev')
+			kodi_utils.notification('FenLightAM update branch set to dev', 3500)
 
 	def force_fork_api_keys(self):
 		from caches.trakt_cache import clear_all_trakt_cache_data
@@ -97,15 +105,7 @@ class OnUpdateChanges:
 			clear_all_trakt_cache_data(silent=True, refresh=False)
 
 	def show_fork_update_summary(self):
-		text = 'FenLight AM fork update by massimo233.[CR][CR]' \
-			'- Restored and forced valid TMDb and Trakt API keys.[CR]' \
-			'- Reset Trakt/TMDb account auth if old app keys were detected.[CR]' \
-			'- Pointed updates to the Slzstream GitHub repository.[CR]' \
-			'- Added legacy update metadata for older FenLight builds.[CR]' \
-			'- Hardened updater downloads to validate packages before replacing files.[CR]' \
-			'- Rebuilt package zips for legacy updater compatibility.[CR][CR]' \
-			'You may need to re-authorize Trakt and TMDb accounts after this update.'
-		kodi_utils.ok_dialog(heading='FenLight AM Fork Update', text=text)
+		kodi_utils.notification('FenLight AM fork updated. Re-authorize Trakt/TMDb if prompted.', 5000)
 
 	def sync_navigator_menus(self):
 		from caches.navigator_cache import navigator_cache
@@ -137,8 +137,7 @@ class OnUpdateChanges:
 			clear_all_trakt_cache_data(silent=True, refresh=False)
 			show_dialog = True
 		if show_dialog:
-			text = 'Successful update to FenLight AM fork by massimo233.\n- Restored valid API keys & much more to come.'
-			kodi_utils.ok_dialog(heading='FenLight AM Update', text=text)
+			kodi_utils.notification('FenLight AM updated. Valid API keys restored.', 5000)
 
 class CustomWindowsPrepare:
 	def run(self):
@@ -193,6 +192,7 @@ class TraktMonitor:
 class UpdateCheck:
 	def run(self):
 		if kodi_utils.get_property(firstrun_update_prop) == 'true': return
+		if kodi_utils.get_property('fenlight.updating') == 'true': return
 		kodi_utils.logger('Fen Light', 'UpdateCheck Service Starting')
 		from modules.updater import update_check
 		from modules.settings import update_action, update_delay
@@ -202,7 +202,11 @@ class UpdateCheck:
 		while not monitor.abortRequested():
 			while time() < end_pause: wait_for_abort(1)
 			while kodi_utils.get_property(pause_services_prop) == 'true' or is_playing(): wait_for_abort(1)
-			update_check(update_action())
+			action = update_action()
+			if action in (0, 1):
+				kodi_utils.run_plugin({'mode': 'updater.update_check', 'action': str(action)})
+			else:
+				update_check(action)
 			break
 		kodi_utils.set_property(firstrun_update_prop, 'true')
 		try: del monitor
@@ -266,6 +270,7 @@ class AutoStart:
 
 class AddonXMLCheck:
 	def run(self):
+		if kodi_utils.get_property('fenlight.updating') == 'true': return
 		kodi_utils.logger('Fen Light', 'AddonXMLCheck Service Starting')
 		from xml.dom.minidom import parse as mdParse
 		self.addon_xml = kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/addon.xml')
@@ -307,21 +312,20 @@ class FenLightMonitor(Monitor):
 
 	def startServices(self):
 		try: SetAddonConstants().run()
-		except Exception as e: logger('SetAddonConstants', str(e))
+		except Exception as e: kodi_utils.logger('SetAddonConstants', str(e))
 		try: DatabaseMaintenance().run()
-		except Exception as e: logger('DatabaseMaintenance', str(e))
+		except Exception as e: kodi_utils.logger('DatabaseMaintenance', str(e))
 		try: SyncSettings().run()
-		except Exception as e: logger('SyncSettings', str(e))
-		try: OnUpdateChanges().run()
-		except Exception as e: logger('OnUpdateChanges', str(e))
+		except Exception as e: kodi_utils.logger('SyncSettings', str(e))
+		Thread(target=OnUpdateChanges().run).start()
 		try: AddonXMLCheck().run()
-		except Exception as e: logger('AddonXMLCheck', str(e))
+		except Exception as e: kodi_utils.logger('AddonXMLCheck', str(e))
 		Thread(target=CustomWindowsPrepare().run).start()
 		Thread(target=TraktMonitor().run).start()
 		Thread(target=UpdateCheck().run).start()
 		Thread(target=WidgetRefresher().run).start()
 		try: AutoStart().run()
-		except Exception as e: logger('AutoStart', str(e))
+		except Exception as e: kodi_utils.logger('AutoStart', str(e))
 
 	def onNotification(self, sender, method, data):
 		if method in ('GUI.OnScreensaverActivated', 'System.OnSleep'):

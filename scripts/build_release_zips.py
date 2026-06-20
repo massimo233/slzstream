@@ -15,7 +15,7 @@ BUNDLED_IN_FENLIGHT = [
 ]
 
 RELEASES = [
-	(FENLIGHT_SRC, 'plugin.video.fenlight', 'plugin.video.fenlight-3.0.4.zip'),
+	(FENLIGHT_SRC, 'plugin.video.fenlight', 'plugin.video.fenlight-3.0.6.zip'),
 	('slyguy.dependencies', 'slyguy.dependencies', 'slyguy.dependencies-0.0.30.zip'),
 	('script.module.slyguy', 'script.module.slyguy', 'script.module.slyguy-0.86.88.zip'),
 	('slyguy.7plus', 'slyguy.7plus', 'slyguy.7plus-0.5.5.zip'),

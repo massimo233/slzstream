@@ -1,6 +1,15 @@
 [COLOR darkgoldenrod]GOD BLESS HIM AND KEEP HIM SAFE.[/COLOR]
 
 
+[COLOR dodgerblue][B]Version 3.0.6[/B][/COLOR]
+- Fixed self-update killing the background service: stop service before replacing files, then restart once.
+- Auto-updates from the service now run through the plugin invoker instead of the service thread.
+- Startup migrations no longer block the service with modal dialogs.
+
+[COLOR dodgerblue][B]Version 3.0.5[/B][/COLOR]
+- Default Slzstream update branch to dev and migrate existing installs off main so 7plus builds are found.
+- Update check now shows installed/online version and branch, and only offers newer upgrades.
+
 [COLOR dodgerblue][B]Version 3.0.4[/B][/COLOR]
 - Fix 7plus runtime by bootstrapping SlyGuy Python paths and enabling bundled addons after install.
 - Show notifications when 7plus components are installed during update.
