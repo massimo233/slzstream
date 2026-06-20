@@ -16,12 +16,62 @@ def update_branch():
 	return branch if branch else 'main'
 
 def get_location(insert=''):
+	username = get_setting('fenlight.update.username') or get_setting('update.username') or 'massimo233'
+	location = get_setting('fenlight.update.location') or get_setting('update.location') or 'Slzstream.github.io'
+	location = location.replace('/packages', '').strip('/')
 	return 'https://raw.githubusercontent.com/%s/%s/%s/packages/%s' % (
-		get_setting('fenlight.update.username'),
-		get_setting('update.location'),
+		username,
+		location,
 		update_branch(),
 		insert,
 	)
+
+def _zip_has_member(zip_file, member):
+	names = zip_file.namelist()
+	if member in names:
+		return True
+	alt = member.replace('/', '\\')
+	if alt in names:
+		return True
+	normalized_member = member.replace('\\', '/').rstrip('/')
+	for name in names:
+		if name.replace('\\', '/').rstrip('/') == normalized_member:
+			return True
+	return False
+
+def _validate_fenlight_zip(zip_location):
+	try:
+		with open(zip_location, 'rb') as handle:
+			if handle.read(2) != b'PK':
+				return False
+		with ZipFile(zip_location) as zip_file:
+			required = (
+				'plugin.video.fenlight/addon.xml',
+				'plugin.video.fenlight/resources/lib/fenlight.py',
+			)
+			return all(_zip_has_member(zip_file, item) for item in required)
+	except Exception as e:
+		logger('Fen Light Updater Error', 'Zip validation failed: %s' % str(e))
+		return False
+
+def _download_package(url, zip_location):
+	try:
+		result = requests.get(url, timeout=120)
+	except Exception as e:
+		logger('Fen Light Updater Error', 'Download failed: %s' % str(e))
+		return False
+	if result.status_code != 200:
+		logger('Fen Light Updater Error', 'Download HTTP %s for %s' % (result.status_code, url))
+		return False
+	if not result.content or result.content[:2] != b'PK':
+		logger('Fen Light Updater Error', 'Download is not a zip file: %s' % url)
+		return False
+	packages_path = path.dirname(zip_location)
+	if not kodi_utils.path_exists(packages_path):
+		kodi_utils.make_directory(packages_path)
+	with open(zip_location, 'wb') as handle:
+		handle.write(result.content)
+	return True
 
 def get_versions():
 	try:
@@ -107,21 +157,14 @@ def update_addon(new_version, action, show_after_action=True):
 	zip_name = 'plugin.video.fenlight-%s.zip' % new_version
 	url = get_location('%s') % zip_name
 	kodi_utils.show_busy_dialog()
-	result = requests.get(url, stream=True)
+	if not _download_package(url, path.join(kodi_utils.translate_path('special://home/addons/packages/'), zip_name)):
+		kodi_utils.hide_busy_dialog()
+		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Please install new update manually.[CR][CR]Could not download update package.')
 	kodi_utils.hide_busy_dialog()
-	if result.status_code != 200: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Please install new update manually.[CR][CR]HTTP Status: %s' % result.status_code)
 	zip_location = path.join(kodi_utils.translate_path('special://home/addons/packages/'), zip_name)
-	with open(zip_location, 'wb') as f: shutil.copyfileobj(result.raw, f)
-	try:
-		with ZipFile(zip_location) as zip_file:
-			required_files = ('plugin.video.fenlight/addon.xml', 'plugin.video.fenlight/resources/lib/fenlight.py')
-			if not all(i in zip_file.namelist() for i in required_files):
-				kodi_utils.delete_file(zip_location)
-				return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Downloaded package is invalid.[CR][CR]Please install new update manually.')
-	except Exception as e:
-		logger('Fen Light Updater Error', str(e))
+	if not _validate_fenlight_zip(zip_location):
 		kodi_utils.delete_file(zip_location)
-		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Downloaded package is not a valid zip.[CR][CR]Please install new update manually.')
+		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Downloaded package is invalid.[CR][CR]Please install new update manually.')
 	shutil.rmtree(path.join(kodi_utils.translate_path('special://home/addons/'), 'plugin.video.fenlight'))
 	success = unzip(zip_location, kodi_utils.translate_path('special://home/addons/'), kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/'))
 	kodi_utils.delete_file(zip_location)
@@ -153,22 +196,13 @@ def install_bundled_dependencies(silent=False):
 		if not silent:
 			kodi_utils.notification('Installing %s...' % dep['id'], 2500)
 		url = get_location(dep['zip'])
-		try:
-			result = requests.get(url, stream=True, timeout=60)
-		except Exception as e:
-			logger('Fen Light 7plus Dependency Error', '%s: %s' % (dep['zip'], str(e)))
-			failed = True
-			continue
-		if result.status_code != 200:
-			logger('Fen Light 7plus Dependency Error', '%s: HTTP %s' % (dep['zip'], result.status_code))
-			failed = True
-			continue
 		zip_location = path.join(packages_path, dep['zip'])
-		with open(zip_location, 'wb') as f:
-			shutil.copyfileobj(result.raw, f)
+		if not _download_package(url, zip_location):
+			failed = True
+			continue
 		try:
 			with ZipFile(zip_location) as zip_file:
-				if dep['check'] not in zip_file.namelist():
+				if not _zip_has_member(zip_file, dep['check']):
 					kodi_utils.delete_file(zip_location)
 					failed = True
 					continue

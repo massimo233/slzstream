@@ -1,6 +1,7 @@
 [COLOR dodgerblue][B]Version 3.0.1[/B][/COLOR]
 - Added 7plus (Channel 7) as a main menu option with Live TV, Shows, Search, Bookmarks, Login, and Settings.
 - FenLightAM update now also installs bundled 7plus components from the Slzstream repo.
+- Fixed auto-update package validation and rebuilt release zips for legacy Kodi updater compatibility.
 
 [COLOR dodgerblue][B]Version 3.0.0[/B][/COLOR]
 - Slzstream stable: TorBox provisioning via 6-digit code, optional self-signed SSL, and Git branch selection for updates (main/dev).
