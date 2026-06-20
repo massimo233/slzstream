@@ -219,18 +219,40 @@ def update_addon(new_version, action, show_after_action=True):
 			kodi_utils.ok_dialog(heading='Fen Light Updater', text=success_text)
 	kodi_utils.refresh_widgets()
 
-def install_bundled_dependencies(silent=False):
+def _enable_dependency_addons(addon_ids):
+	for addon_id in addon_ids:
+		kodi_utils.enable_addon(addon_id)
+
+def _verify_sevenplus_runtime(installed):
+	from modules import sevenplus
+	sevenplus.bootstrap_runtime()
+	if sevenplus.runtime_ready(force=True):
+		return installed, []
+	sevenplus.bootstrap_runtime()
+	if sevenplus.runtime_ready(force=True):
+		return installed, []
+	logger('Fen Light 7plus Dependency Error', 'SlyGuy Python module failed to load after install')
+	return installed, ['slyguy runtime']
+
+def install_bundled_dependencies(silent=False, force=False):
 	addons_path = kodi_utils.translate_path('special://home/addons/')
 	packages_path = kodi_utils.translate_path('special://home/addons/packages/')
 	if not kodi_utils.path_exists(packages_path):
 		kodi_utils.make_directory(packages_path)
+	from modules import sevenplus
+	if all(_dependency_ready(dep, addons_path) for dep in BUNDLED_DEPENDENCIES) and not force:
+		_enable_dependency_addons([dep['id'] for dep in BUNDLED_DEPENDENCIES])
+		kodi_utils.update_local_addons()
+		sevenplus.bootstrap_runtime()
+		if sevenplus.runtime_ready(force=True):
+			kodi_utils.notification('7plus components ready', 3500)
+			return {'success': True, 'installed': [], 'failed': []}
 	installed = []
 	failed = []
 	for dep in BUNDLED_DEPENDENCIES:
-		if _dependency_ready(dep, addons_path):
+		if _dependency_ready(dep, addons_path) and not force:
 			continue
-		if not silent:
-			kodi_utils.notification('Installing %s...' % dep['id'], 2500)
+		kodi_utils.notification('Installing %s...' % dep['id'], 3500)
 		zip_location = _stage_package_zip(dep, packages_path)
 		if not zip_location:
 			logger('Fen Light 7plus Dependency Error', 'Could not stage %s' % dep['zip'])
@@ -251,7 +273,7 @@ def install_bundled_dependencies(silent=False):
 		dest_folder = path.join(addons_path, dep['folder'])
 		if kodi_utils.path_exists(dest_folder):
 			shutil.rmtree(dest_folder)
-		success = unzip(zip_location, addons_path, path.join(addons_path, dep['folder'], 'addon.xml'), show_busy=not silent)
+		success = unzip(zip_location, addons_path, path.join(addons_path, dep['folder'], 'addon.xml'), show_busy=False)
 		kodi_utils.delete_file(zip_location)
 		if not success:
 			logger('Fen Light 7plus Dependency Error', 'Extract failed for %s' % dep['id'])
@@ -260,5 +282,12 @@ def install_bundled_dependencies(silent=False):
 		installed.append(dep['id'])
 	if installed:
 		kodi_utils.update_local_addons()
+		_enable_dependency_addons(installed)
 		kodi_utils.update_kodi_addons_db()
+		installed, runtime_failed = _verify_sevenplus_runtime(installed)
+		failed.extend(runtime_failed)
+	if installed:
+		kodi_utils.notification('7plus components installed: %s' % ', '.join(installed), 5000)
+	if failed:
+		kodi_utils.notification('7plus install failed: %s' % ', '.join(failed), 5000)
 	return {'success': not failed, 'installed': installed, 'failed': failed}

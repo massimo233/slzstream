@@ -361,6 +361,12 @@ def disable_enable_addon(addon_name='plugin.video.fenlight'):
 		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': True}}))
 	except: pass
 
+def enable_addon(addon_name):
+	import json
+	try:
+		xbmc.executeJSONRPC(json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'Addons.SetAddonEnabled', 'params': {'addonid': addon_name, 'enabled': True}}))
+	except: pass
+
 def update_local_addons():
 	execute_builtin('UpdateLocalAddons', True)
 	sleep(2500)

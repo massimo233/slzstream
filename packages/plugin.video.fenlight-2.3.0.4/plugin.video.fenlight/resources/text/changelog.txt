@@ -1,6 +1,10 @@
 [COLOR darkgoldenrod]GOD BLESS HIM AND KEEP HIM SAFE.[/COLOR]
 
 
+[COLOR dodgerblue][B]Version 3.0.4[/B][/COLOR]
+- Fix 7plus runtime by bootstrapping SlyGuy Python paths and enabling bundled addons after install.
+- Show notifications when 7plus components are installed during update.
+
 [COLOR dodgerblue][B]Version 3.0.3[/B][/COLOR]
 - Bundle 7plus component zips inside FenLightAM and install them automatically during update (no separate download step).
 

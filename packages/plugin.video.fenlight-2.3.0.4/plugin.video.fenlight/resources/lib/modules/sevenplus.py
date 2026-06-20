@@ -11,6 +11,7 @@ from modules import kodi_utils as k
 ADDON_7PLUS = 'slyguy.7plus'
 ADDON_SLYGUY = 'script.module.slyguy'
 ADDON_DEPS = 'slyguy.dependencies'
+ADDONS_PATH = k.translate_path('special://home/addons/')
 
 BUNDLED_DEPENDENCIES = [
 	{'id': ADDON_DEPS, 'zip': 'slyguy.dependencies-0.0.30.zip', 'folder': ADDON_DEPS, 'check': '%s/addon.xml' % ADDON_DEPS},
@@ -20,15 +21,46 @@ BUNDLED_DEPENDENCIES = [
 
 _plugin_module = None
 _original_build_url = None
+_runtime_ready = None
 
 
-def addons_installed():
-	return all(_dependency_ready(dep) for dep in BUNDLED_DEPENDENCIES)
+def _addon_modules_path(addon_id):
+	return os.path.join(ADDONS_PATH, addon_id, 'resources', 'modules')
+
+
+def bootstrap_runtime():
+	for addon_id in (ADDON_DEPS, ADDON_SLYGUY):
+		modules_path = _addon_modules_path(addon_id)
+		if k.path_exists(modules_path) and modules_path not in sys.path:
+			sys.path.insert(0, modules_path)
+	os.environ['ADDON_ID'] = ADDON_7PLUS
+	return runtime_ready()
+
+
+def runtime_ready(force=False):
+	global _runtime_ready
+	if force:
+		_runtime_ready = None
+	if _runtime_ready is not None:
+		return _runtime_ready
+	bootstrap_runtime()
+	try:
+		import slyguy  # noqa: F401
+		_runtime_ready = True
+	except ImportError as e:
+		k.logger('7plus Bootstrap Error', str(e))
+		_runtime_ready = False
+	return _runtime_ready
 
 
 def _dependency_ready(dep):
-	addon_xml = os.path.join(k.translate_path('special://home/addons/'), dep['folder'], 'addon.xml')
-	return k.path_exists(addon_xml)
+	return k.path_exists(os.path.join(ADDONS_PATH, dep['folder'], 'addon.xml'))
+
+
+def addons_installed():
+	if not all(_dependency_ready(dep) for dep in BUNDLED_DEPENDENCIES):
+		return False
+	return runtime_ready()
 
 
 def get_icon():
@@ -46,7 +78,7 @@ def proxy_url(route='', **kwargs):
 	if route:
 		params['_'] = route
 	for key, value in kwargs.items():
-		if value is None or key in ('mode', '_addon_id'):
+		if value is None or key in ('mode', '_addon_id', 'iconImage', 'name'):
 			continue
 		params[key] = value
 	return k.build_url(params)
@@ -55,6 +87,8 @@ def proxy_url(route='', **kwargs):
 def build_slyguy_url(params):
 	data = dict(params)
 	data.pop('mode', None)
+	for key in ('iconImage', 'name', 'isFolder'):
+		data.pop(key, None)
 	route = data.pop('_', '') or ''
 	query = {}
 	if route:
@@ -88,7 +122,6 @@ def _load_plugin():
 	global _plugin_module
 	if _plugin_module:
 		return _plugin_module
-	os.environ['ADDON_ID'] = ADDON_7PLUS
 	addon_path = xbmcaddon.Addon(ADDON_7PLUS).getAddonInfo('path')
 	if addon_path not in sys.path:
 		sys.path.insert(0, addon_path)
@@ -98,8 +131,10 @@ def _load_plugin():
 
 
 def dispatch(params):
-	if not addons_installed():
+	if not all(_dependency_ready(dep) for dep in BUNDLED_DEPENDENCIES):
 		return install_dependencies()
+	if not bootstrap_runtime():
+		return install_dependencies(retry=True)
 	url = build_slyguy_url(params)
 	_patch_build_url()
 	try:
@@ -117,16 +152,28 @@ def open_settings():
 	return k.execute_builtin('Addon.OpenSettings(%s)' % ADDON_7PLUS)
 
 
-def install_dependencies():
+def install_dependencies(retry=False):
 	from modules import updater
-	status = updater.install_bundled_dependencies(silent=False)
+	heading = '7plus'
+	if retry:
+		text = '7plus components are installed but could not be loaded.[CR][CR]Reinstall them now?'
+	else:
+		text = '7plus requires additional components.[CR][CR]Install them now?'
+	if not retry and not k.confirm_dialog(heading=heading, text=text):
+		return
+	status = updater.install_bundled_dependencies(silent=False, force=retry)
+	runtime_ready(force=True)
 	if status.get('success') and addons_installed():
-		k.notification('7plus components installed', 3000)
+		k.notification('7plus components ready', 3500)
 		return dispatch({'mode': 'sevenplus.dispatch'})
 	text = 'Could not install all 7plus components.'
+	if status.get('installed'):
+		text += '[CR][CR]Installed: %s' % ', '.join(status['installed'])
 	if status.get('failed'):
 		text += '[CR][CR]Failed: %s' % ', '.join(status['failed'])
-	return k.ok_dialog(heading='7plus', text=text)
+	if not runtime_ready():
+		text += '[CR][CR]The SlyGuy Python module could not be loaded. Restart Kodi and try again.'
+	return k.ok_dialog(heading=heading, text=text)
 
 
 def menu_items():
