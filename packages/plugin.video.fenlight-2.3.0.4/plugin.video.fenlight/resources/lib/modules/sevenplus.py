@@ -2,6 +2,7 @@
 """7plus integration: proxy slyguy.7plus routes through FenLightAM."""
 import os
 import sys
+import traceback
 from urllib.parse import urlencode
 
 import xbmcaddon
@@ -11,8 +12,6 @@ from modules import kodi_utils as k
 ADDON_7PLUS = 'slyguy.7plus'
 ADDON_SLYGUY = 'script.module.slyguy'
 ADDON_DEPS = 'slyguy.dependencies'
-ADDONS_PATH = k.translate_path('special://home/addons/')
-
 BUNDLED_DEPENDENCIES = [
 	{'id': ADDON_DEPS, 'zip': 'slyguy.dependencies-0.0.30.zip', 'folder': ADDON_DEPS, 'check': '%s/addon.xml' % ADDON_DEPS},
 	{'id': ADDON_SLYGUY, 'zip': 'script.module.slyguy-0.86.88.zip', 'folder': ADDON_SLYGUY, 'check': '%s/addon.xml' % ADDON_SLYGUY},
@@ -24,8 +23,31 @@ _original_build_url = None
 _runtime_ready = None
 
 
+def _addons_path():
+	return k.translate_path('special://home/addons/')
+
+
+def _addon_root(addon_id):
+	try:
+		addon_path = xbmcaddon.Addon(addon_id).getAddonInfo('path')
+		if addon_path:
+			addon_path = k.translate_path(addon_path)
+			if k.path_exists(os.path.join(addon_path, 'addon.xml')):
+				return addon_path
+	except Exception:
+		pass
+	fallback = os.path.join(_addons_path(), addon_id)
+	if k.path_exists(os.path.join(fallback, 'addon.xml')):
+		return fallback
+	return None
+
+
 def _addon_modules_path(addon_id):
-	return os.path.join(ADDONS_PATH, addon_id, 'resources', 'modules')
+	root = _addon_root(addon_id)
+	if not root:
+		return None
+	modules_path = os.path.join(root, 'resources', 'modules')
+	return modules_path if k.path_exists(modules_path) else None
 
 
 def _clear_slyguy_modules():
@@ -38,16 +60,16 @@ def bootstrap_runtime():
 	paths = []
 	for addon_id in (ADDON_DEPS, ADDON_SLYGUY):
 		modules_path = _addon_modules_path(addon_id)
-		if k.path_exists(modules_path):
+		if modules_path:
 			paths.append(modules_path)
-	sevenplus_root = os.path.join(ADDONS_PATH, ADDON_7PLUS)
-	if k.path_exists(sevenplus_root):
+	sevenplus_root = _addon_root(ADDON_7PLUS)
+	if sevenplus_root:
 		paths.append(sevenplus_root)
 	for modules_path in reversed(paths):
 		if modules_path not in sys.path:
 			sys.path.insert(0, modules_path)
 	os.environ['ADDON_ID'] = ADDON_7PLUS
-	return True
+	return paths
 
 
 def runtime_ready(force=False):
@@ -57,7 +79,11 @@ def runtime_ready(force=False):
 		_clear_slyguy_modules()
 	if _runtime_ready is not None:
 		return _runtime_ready
-	bootstrap_runtime()
+	paths = bootstrap_runtime()
+	if not paths:
+		k.logger('7plus Bootstrap Error', 'SlyGuy module paths were not found on disk')
+		_runtime_ready = False
+		return _runtime_ready
 	try:
 		import xbmcaddon as xbmcaddon_module
 		_original_addon = xbmcaddon_module.Addon
@@ -72,13 +98,13 @@ def runtime_ready(force=False):
 		finally:
 			xbmcaddon_module.Addon = _original_addon
 	except Exception as e:
-		k.logger('7plus Bootstrap Error', str(e))
+		k.logger('7plus Bootstrap Error', '%s\n%s' % (str(e), traceback.format_exc()))
 		_runtime_ready = False
 	return _runtime_ready
 
 
 def _dependency_ready(dep):
-	return k.path_exists(os.path.join(ADDONS_PATH, dep['folder'], 'addon.xml'))
+	return _addon_root(dep['folder']) is not None
 
 
 def addons_installed():
@@ -146,7 +172,9 @@ def _load_plugin():
 	global _plugin_module
 	if _plugin_module:
 		return _plugin_module
-	addon_path = xbmcaddon.Addon(ADDON_7PLUS).getAddonInfo('path')
+	addon_path = _addon_root(ADDON_7PLUS)
+	if not addon_path:
+		raise RuntimeError('7plus addon path not found')
 	if addon_path not in sys.path:
 		sys.path.insert(0, addon_path)
 	from resources.lib import plugin as plugin_module

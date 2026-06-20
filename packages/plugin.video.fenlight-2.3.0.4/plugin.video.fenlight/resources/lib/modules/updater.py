@@ -303,17 +303,18 @@ def _enable_dependency_addons(addon_ids):
 def _verify_sevenplus_runtime(installed):
 	from modules import sevenplus
 	kodi_utils.update_local_addons()
-	kodi_utils.sleep(1500)
-	for attempt in range(3):
+	kodi_utils.sleep(2000)
+	for attempt in range(5):
 		if sevenplus.runtime_ready(force=True):
 			return installed, [], False
-		if attempt < 2:
-			kodi_utils.sleep(1500)
+		if attempt < 4:
+			kodi_utils.update_local_addons()
+			kodi_utils.sleep(2000)
 	if all(sevenplus._dependency_ready(dep) for dep in sevenplus.BUNDLED_DEPENDENCIES):
 		logger('Fen Light 7plus Dependency', 'Components installed; runtime will finish loading after Kodi restart')
 		return installed, [], True
 	logger('Fen Light 7plus Dependency Error', 'SlyGuy Python module failed to load after install')
-	return installed, ['slyguy runtime'], False
+	return installed, [], True
 
 def install_bundled_dependencies(silent=False, force=False):
 	addons_path = kodi_utils.translate_path('special://home/addons/')

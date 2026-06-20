@@ -1,7 +1,81 @@
-from kodi_six import xbmc
+import os
+import re
+
+from kodi_six import xbmc, xbmcaddon
 
 from slyguy.log import log
-from slyguy.constants import ADDON, COMMON_ADDON
+from slyguy.constants import ADDON, COMMON_ADDON, COMMON_ADDON_ID
+
+_po_cache = {}
+
+
+def _unescape_po(value):
+    return value.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+
+
+def _parse_po_block(block):
+    ctx = re.search(r'msgctxt\s+"#(\d+)"', block)
+    if not ctx:
+        return None, None
+
+    msgid = ''
+    msgid_match = re.search(r'msgid\s+""\s*\n((?:".*"\s*\n)+)', block)
+    if msgid_match:
+        msgid = ''.join(re.findall(r'"(.*)"', msgid_match.group(1)))
+    else:
+        msgid_match = re.search(r'msgid\s+"(.*)"', block, re.DOTALL)
+        if msgid_match:
+            msgid = msgid_match.group(1)
+
+    msgstr = ''
+    msgstr_match = re.search(r'msgstr\s+""\s*\n((?:".*"\s*\n)+)', block)
+    if msgstr_match:
+        msgstr = ''.join(re.findall(r'"(.*)"', msgstr_match.group(1)))
+    else:
+        msgstr_match = re.search(r'msgstr\s+"(.*)"', block, re.DOTALL)
+        if msgstr_match:
+            msgstr = msgstr_match.group(1)
+
+    if not msgid:
+        return None, None
+
+    return int(ctx.group(1)), _unescape_po(msgstr or msgid)
+
+
+def _load_po_strings(addon_id):
+    if addon_id in _po_cache:
+        return _po_cache[addon_id]
+
+    strings = {}
+    try:
+        addon_path = xbmcaddon.Addon(addon_id).getAddonInfo('path')
+        po_dirs = (
+            'resource.language.en_gb',
+            'resource.language.en',
+        )
+        po_path = None
+        for po_dir in po_dirs:
+            candidate = os.path.join(addon_path, 'resources', 'language', po_dir, 'strings.po')
+            if os.path.exists(candidate):
+                po_path = candidate
+                break
+
+        if po_path:
+            with open(po_path, 'r', encoding='utf-8', errors='ignore') as handle:
+                content = handle.read()
+            for block in re.split(r'\n\s*\n', content):
+                string_id, string = _parse_po_block(block)
+                if string_id is not None:
+                    strings[string_id] = string
+    except Exception as e:
+        log.debug('Failed to load PO strings for {}: {}'.format(addon_id, e))
+
+    _po_cache[addon_id] = strings
+    return strings
+
+
+def _po_string(addon_id, string_id):
+    return _load_po_strings(addon_id).get(string_id)
 
 
 def format_string(string, *args, **kwargs):
@@ -38,16 +112,40 @@ def format_string(string, *args, **kwargs):
 
 
 def addon_string(id, addon=ADDON):
-    if id >= 30000:
-        string = addon.getLocalizedString(id)
-    else:
-        string = xbmc.getLocalizedString(id)
+    addons_to_try = []
+    for candidate in (addon, COMMON_ADDON, ADDON):
+        if candidate not in addons_to_try:
+            addons_to_try.append(candidate)
 
-    if not string:
-        log.warning("LANGUAGE: Addon didn't return a string for id: {}".format(id))
-        string = str(id)
+    for addon_obj in addons_to_try:
+        try:
+            if id >= 30000:
+                string = addon_obj.getLocalizedString(id)
+            else:
+                string = xbmc.getLocalizedString(id)
+            if string:
+                return string
+        except Exception:
+            pass
 
-    return string
+    addon_ids = []
+    for addon_obj in addons_to_try:
+        try:
+            addon_id = addon_obj.getAddonInfo('id')
+            if addon_id not in addon_ids:
+                addon_ids.append(addon_id)
+        except Exception:
+            pass
+    if COMMON_ADDON_ID not in addon_ids:
+        addon_ids.append(COMMON_ADDON_ID)
+
+    for addon_id in addon_ids:
+        string = _po_string(addon_id, id)
+        if string:
+            return string
+
+    log.warning("LANGUAGE: Addon didn't return a string for id: {}".format(id))
+    return str(id)
 
 
 class BaseLanguage(object):

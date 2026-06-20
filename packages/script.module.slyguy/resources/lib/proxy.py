@@ -213,8 +213,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if url == new_url:
             return new_url
 
-        if url in self._session.get('manifest'):
-            self._session['manifest'].append(new_url)
+        manifest = self._session.get('manifest') or []
+        if url in manifest:
+            manifest.append(new_url)
+            self._session['manifest'] = manifest
         if url == self._session.get('license_url'):
             self._session['license_url'] = new_url
         if url in self._session.get('middleware', {}):
@@ -262,7 +264,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         url = self._get_url('GET')
-        manifest = self._session.get('manifest')
+        manifest = self._session.get('manifest') or []
 
         response = Response()
         response.stream = ResponseStream(response)
