@@ -241,7 +241,7 @@ class Navigator:
 		from modules import sevenplus as sp
 		if sp.addons_installed():
 			self.add({'mode': 'sevenplus.open_settings', 'isFolder': 'false'}, '7plus Settings', '7plus')
-		elif k.addon_installed('slyguy.7plus') or k.addon_installed('script.module.slyguy'):
+		else:
 			self.add({'mode': 'sevenplus.install_dependencies', 'isFolder': 'false'}, 'Install 7plus Components', '7plus')
 		self.add({'mode': 'navigator.tips'}, 'Tips for Use', 'settings2')
 		if get_setting('fenlight.use_viewtypes', 'true') == 'true' and not get_setting('fenlight.manual_viewtypes', 'false') == 'true':
@@ -288,7 +288,10 @@ class Navigator:
 		self.end_directory()
 
 	def update_utils(self):
+		from modules import sevenplus as sp
 		self.add({'mode': 'updater.update_check', 'isFolder': 'false'}, 'Check For Updates', 'github')
+		if not sp.addons_installed():
+			self.add({'mode': 'sevenplus.install_dependencies', 'isFolder': 'false'}, 'Install 7plus Components', '7plus')
 		self.add({'mode': 'updater.rollback_check', 'isFolder': 'false'}, 'Rollback to a Previous Version', 'github')
 		self.add({'mode': 'updater.get_changes', 'isFolder': 'false'}, 'Check Online Version Changelog', 'github')
 		self.end_directory()

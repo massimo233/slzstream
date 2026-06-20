@@ -15,6 +15,15 @@ trakt_service_string = 'TraktMonitor Service Update %s - %s'
 trakt_success_line_dict = {'success': 'Trakt Update Performed', 'no account': '(Unauthorized) Trakt Update Performed'}
 update_string = 'Next Update in %s minutes...'
 
+def offer_pending_sevenplus_install():
+	if kodi_utils.get_property('fenlight.offer_7plus_install') != 'true':
+		return
+	from modules import sevenplus
+	if sevenplus.addons_installed():
+		kodi_utils.clear_property('fenlight.offer_7plus_install')
+		return
+	kodi_utils.run_plugin({'mode': 'sevenplus.install_dependencies'})
+
 class SetAddonConstants:
 	def run(self):
 		kodi_utils.logger('Fen Light', 'SetAddonConstants Service Starting')
@@ -324,6 +333,7 @@ class FenLightMonitor(Monitor):
 		Thread(target=TraktMonitor().run).start()
 		Thread(target=UpdateCheck().run).start()
 		Thread(target=WidgetRefresher().run).start()
+		Thread(target=offer_pending_sevenplus_install).start()
 		try: AutoStart().run()
 		except Exception as e: kodi_utils.logger('AutoStart', str(e))
 

@@ -1,3 +1,8 @@
+[COLOR dodgerblue][B]Version 3.0.7[/B][/COLOR]
+- FenLightAM updates no longer install 7plus during the update itself; you are prompted to install components after a successful update.
+- Removed all manual zip install messaging; failed updates tell you to retry Check For Updates.
+- Added Install 7plus Components under Tools → Update Utilities when components are missing.
+
 [COLOR dodgerblue][B]Version 3.0.6[/B][/COLOR]
 - Fixed self-update killing the background service: stop service before replacing files, then restart once.
 - Auto-updates from the service now run through the plugin invoker instead of the service thread.

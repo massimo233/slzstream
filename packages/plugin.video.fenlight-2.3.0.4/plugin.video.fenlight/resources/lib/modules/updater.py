@@ -74,24 +74,30 @@ def _stage_package_zip(dep, packages_path):
 		return zip_location
 	return None
 
-def _download_package(url, zip_location):
-	try:
-		result = requests.get(url, timeout=120)
-	except Exception as e:
-		logger('Fen Light Updater Error', 'Download failed: %s' % str(e))
-		return False
-	if result.status_code != 200:
-		logger('Fen Light Updater Error', 'Download HTTP %s for %s' % (result.status_code, url))
-		return False
-	if not result.content or result.content[:2] != b'PK':
-		logger('Fen Light Updater Error', 'Download is not a zip file: %s' % url)
-		return False
-	packages_path = path.dirname(zip_location)
-	if not kodi_utils.path_exists(packages_path):
-		kodi_utils.make_directory(packages_path)
-	with open(zip_location, 'wb') as handle:
-		handle.write(result.content)
-	return True
+def _download_package(url, zip_location, attempts=3):
+	for attempt in range(attempts):
+		try:
+			result = requests.get(url, timeout=60)
+		except Exception as e:
+			logger('Fen Light Updater Error', 'Download failed (attempt %s/%s): %s' % (attempt + 1, attempts, str(e)))
+			if attempt + 1 < attempts:
+				kodi_utils.sleep(1500)
+			continue
+		if result.status_code != 200:
+			logger('Fen Light Updater Error', 'Download HTTP %s for %s (attempt %s/%s)' % (result.status_code, url, attempt + 1, attempts))
+			if attempt + 1 < attempts:
+				kodi_utils.sleep(1500)
+			continue
+		if not result.content or result.content[:2] != b'PK':
+			logger('Fen Light Updater Error', 'Download is not a zip file: %s' % url)
+			return False
+		packages_path = path.dirname(zip_location)
+		if not kodi_utils.path_exists(packages_path):
+			kodi_utils.make_directory(packages_path)
+		with open(zip_location, 'wb') as handle:
+			handle.write(result.content)
+		return True
+	return False
 
 def _format_dependency_status(status):
 	if status.get('installed'):
@@ -115,6 +121,29 @@ def _restart_addon_after_update(addon_name='plugin.video.fenlight'):
 	kodi_utils.update_kodi_addons_db(addon_name)
 	kodi_utils.clear_property('fenlight.updating')
 	kodi_utils.clear_property('fenlight.pause_services')
+
+def _update_failed_dialog(reason):
+	return kodi_utils.ok_dialog(
+		heading='Fen Light Updater',
+		text='Error Updating.[CR][CR]%s[CR][CR]Restart Kodi if needed, then use [B]Tools → Update Utilities → Check For Updates[/B] to retry.' % reason
+	)
+
+def _offer_sevenplus_install_after_update():
+	from modules import sevenplus
+	if sevenplus.addons_installed():
+		kodi_utils.clear_property('fenlight.offer_7plus_install')
+		return
+	kodi_utils.clear_property('fenlight.offer_7plus_install')
+	if kodi_utils.confirm_dialog(
+		heading='7plus Components',
+		text='FenLightAM updated successfully.[CR][CR]Install 7plus components now?[CR][CR]You can also do this later from [B]Tools[/B] or the [B]7plus[/B] menu.',
+		ok_label='Install',
+		cancel_label='Later'):
+		return install_bundled_dependencies(silent=False)
+	kodi_utils.notification('Install 7plus anytime from Tools or the 7plus menu', 5000)
+
+def install_sevenplus_components():
+	return install_bundled_dependencies(silent=False)
 
 def get_versions():
 	try:
@@ -189,11 +218,11 @@ def rollback_check():
 	kodi_utils.show_busy_dialog()
 	results = requests.get(url, params={'ref': update_branch()})
 	kodi_utils.hide_busy_dialog()
-	if results.status_code != 200: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error rolling back.[CR]Please install rollback manually')
+	if results.status_code != 200: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Could not list previous versions.[CR][CR]Check update branch settings and try again.')
 	results = results.json()
 	results = [i['name'].split('-')[1].replace('.zip', '') for i in results if 'plugin.video.fenlight' in i['name'] \
 				and not i['name'].split('-')[1].replace('.zip', '') == current_version]
-	if not results: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='No previous versions found.[CR]Please install rollback manually')
+	if not results: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='No previous versions found on the selected update branch.')
 	results.sort(reverse=True)
 	list_items = [{'line1': item, 'icon': kodi_utils.get_icon('downloads')} for item in results]
 	kwargs = {'items': json.dumps(list_items), 'heading': 'Choose Rollback Version'}
@@ -217,12 +246,15 @@ def update_addon(new_version, action, show_after_action=True):
 	kodi_utils.show_busy_dialog()
 	if not _download_package(url, zip_location):
 		kodi_utils.hide_busy_dialog()
-		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Please install new update manually.[CR][CR]Could not download update package.')
+		return _update_failed_dialog('Could not download the update package.')
 	if not _validate_fenlight_zip(zip_location):
 		kodi_utils.delete_file(zip_location)
 		kodi_utils.hide_busy_dialog()
-		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Downloaded package is invalid.[CR][CR]Please install new update manually.')
+		return _update_failed_dialog('Downloaded package failed validation.')
 	try:
+		from modules import sevenplus
+		if not sevenplus.addons_installed():
+			kodi_utils.set_property('fenlight.offer_7plus_install', 'true')
 		_stop_service_before_update()
 		if kodi_utils.path_exists(addon_path):
 			shutil.rmtree(addon_path)
@@ -231,29 +263,28 @@ def update_addon(new_version, action, show_after_action=True):
 		if not success:
 			_restart_addon_after_update()
 			kodi_utils.hide_busy_dialog()
-			return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Please install new update manually.')
-		dep_status = install_bundled_dependencies(silent=True)
+			return _update_failed_dialog('Could not extract the update package.')
 		_restart_addon_after_update()
 	except Exception as e:
 		logger('Fen Light Updater Error', str(e))
 		kodi_utils.clear_property('fenlight.updating')
 		kodi_utils.clear_property('fenlight.pause_services')
 		kodi_utils.hide_busy_dialog()
-		return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]The background service could not stop cleanly.[CR][CR]Restart Kodi and try again, or install the zip manually.')
+		return _update_failed_dialog('The background service could not stop cleanly.')
 	kodi_utils.hide_busy_dialog()
 	from caches.navigator_cache import navigator_cache
 	navigator_cache.sync_default_menus(notify=True)
-	dep_text = _format_dependency_status(dep_status)
 	if action == 5:
 		set_setting('update.action', '3')
 		kodi_utils.ok_dialog(heading='Fen Light Updater', text='[CR]Success.[CR]Fen Light rolled back to version [B]%s[/B]' % new_version)
 	elif action in (0, 4):
-		success_text = '[CR]Success.[CR]Fen Light updated to version [B]%s[/B]%s' % (new_version, dep_text)
+		success_text = '[CR]Success.[CR]Fen Light updated to version [B]%s[/B]' % new_version
 		if show_after_action:
 			if kodi_utils.confirm_dialog(heading='Fen Light Updater', text=success_text, ok_label='Changelog', cancel_label='Exit', default_control=10) != False:
 				kodi_utils.show_text('Changelog', file=kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/resources/text/changelog.txt'), font_size='large')
 		else:
 			kodi_utils.ok_dialog(heading='Fen Light Updater', text=success_text)
+		_offer_sevenplus_install_after_update()
 	kodi_utils.refresh_widgets()
 
 def _enable_dependency_addons(addon_ids):
