@@ -1,6 +1,10 @@
 [COLOR darkgoldenrod]GOD BLESS HIM AND KEEP HIM SAFE.[/COLOR]
 
 
+[COLOR dodgerblue][B]Version 3.0.10[/B][/COLOR]
+- Update check dialog now shows repo/branch and confirms when you are already on the latest dev build.
+- Default update repo set to slzstream with migration from legacy Slzstream.github.io settings.
+
 [COLOR dodgerblue][B]Version 3.0.9[/B][/COLOR]
 - Fixed 7plus runtime bootstrap using the correct slyguy.7plus addon context inside FenLightAM.
 - Component install no longer fails when runtime needs a Kodi restart to finish loading.

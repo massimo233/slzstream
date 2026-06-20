@@ -206,8 +206,8 @@ def default_settings():
 {'setting_id': 'update.action', 'setting_type': 'action', 'setting_default': '0', 'settings_options': {'0': 'Prompt', '1': 'Automatic', '2': 'Notification', '3': 'Off'}},
 {'setting_id': 'update.delay', 'setting_type': 'action', 'setting_default': '10', 'min_value': '10', 'max_value': '300'},
 {'setting_id': 'update.username', 'setting_type': 'string', 'setting_default': 'massimo233'},
-{'setting_id': 'update.location', 'setting_type': 'string', 'setting_default': 'Slzstream.github.io'},
-{'setting_id': 'update.branch', 'setting_type': 'string', 'setting_default': 'main'},
+{'setting_id': 'update.location', 'setting_type': 'string', 'setting_default': 'slzstream'},
+{'setting_id': 'update.branch', 'setting_type': 'string', 'setting_default': 'dev'},
 #==================== Watched Indicators
 {'setting_id': 'watched_indicators', 'setting_type': 'action', 'setting_default': '0', 'settings_options': {'0': 'Fen Light', '1': 'Trakt'}},
 #======+============= Trakt Cache
@@ -591,5 +591,6 @@ def default_settings():
 {'setting_id': 'updatechecks.migrate_update_repo', 'setting_type': 'string', 'setting_default': 'false'},
 {'setting_id': 'updatechecks.refresh_addon_keys', 'setting_type': 'string', 'setting_default': 'false'},
 {'setting_id': 'updatechecks.show_fork_update_summary', 'setting_type': 'string', 'setting_default': 'false'},
-{'setting_id': 'updatechecks.sync_navigator_menus', 'setting_type': 'string', 'setting_default': 'false'}
+{'setting_id': 'updatechecks.sync_navigator_menus', 'setting_type': 'string', 'setting_default': 'false'},
+{'setting_id': 'updatechecks.migrate_update_branch', 'setting_type': 'string', 'setting_default': 'false'}
 	]

@@ -17,14 +17,19 @@ def update_branch():
 
 def get_location(insert=''):
 	username = get_setting('fenlight.update.username') or get_setting('update.username') or 'massimo233'
-	location = get_setting('fenlight.update.location') or get_setting('update.location') or 'Slzstream.github.io'
+	location = get_setting('fenlight.update.location') or get_setting('update.location') or 'slzstream'
 	location = location.replace('/packages', '').strip('/')
+	if location.lower() in ('slzstream.github.io', 'massimo233.github.io/slzstream.github.io'):
+		location = 'slzstream'
 	return 'https://raw.githubusercontent.com/%s/%s/%s/packages/%s' % (
 		username,
 		location,
 		update_branch(),
 		insert,
 	)
+
+def get_update_source():
+	return get_location('fenlightam_version')
 
 def _zip_has_member(zip_file, member):
 	names = zip_file.namelist()
@@ -147,7 +152,8 @@ def install_sevenplus_components():
 
 def get_versions():
 	try:
-		result = requests.get(get_location('fenlightam_version'))
+		import time
+		result = requests.get('%s?t=%s' % (get_update_source(), int(time.time())), timeout=30)
 		if result.status_code != 200:
 			kodi_utils.notification('Fen Light update check failed: %s' % result.status_code, 3000)
 			return None, None
@@ -183,7 +189,8 @@ def version_check(current_version, online_version):
 
 def _update_status_text(current_version, online_version):
 	branch = update_branch()
-	return 'Installed Version: [B]%s[/B][CR]Online Version: [B]%s[/B][CR]Update Branch: [B]%s[/B]' % (current_version, online_version, branch)
+	location = (get_setting('fenlight.update.location') or get_setting('update.location') or 'slzstream').replace('/packages', '').strip('/')
+	return 'Installed Version: [B]%s[/B][CR]Online Version: [B]%s[/B][CR]Update Branch: [B]%s[/B][CR]Update Repo: [B]%s[/B]' % (current_version, online_version, branch, location)
 
 def update_check(action=4):
 	if action == 3: return
@@ -197,6 +204,8 @@ def update_check(action=4):
 			extra = '[CR][CR][B]No Update Available[/B]'
 			if update_branch() == 'main':
 				extra += '[CR][CR]7plus builds are published on the [B]dev[/B] branch. Set Git branch to dev under Settings → Manage Addon Updates.'
+			elif current_version == online_version:
+				extra += '[CR][CR]You already have the latest build for this branch.'
 			return kodi_utils.ok_dialog(heading='Fen Light Updater', text='%s%s' % (status_text, extra))
 		return
 	if action in (0, 4):

@@ -129,7 +129,9 @@ def get_icon(image_name, image_folder='icons', image_type='png'):
 	if path_exists(local_icon):
 		return translate_path(local_icon)
 	username = get_property('fenlight.update.username') or 'massimo233'
-	location = (get_property('fenlight.update.location') or 'Slzstream.github.io').replace('/packages', '').strip('/')
+	location = (get_property('fenlight.update.location') or 'slzstream').replace('/packages', '').strip('/')
+	if location.lower() in ('slzstream.github.io', 'massimo233.github.io/slzstream.github.io'):
+		location = 'slzstream'
 	branch = get_property('fenlight.update.branch') or 'dev'
 	return 'https://raw.githubusercontent.com/%s/%s/%s/packages/media/%s/%s.%s' \
 			% (username, location, branch, image_folder, image_name, image_type)

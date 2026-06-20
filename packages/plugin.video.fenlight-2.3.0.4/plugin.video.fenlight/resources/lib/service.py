@@ -73,8 +73,8 @@ class OnUpdateChanges:
 		if legacy_username in (None, '', 'FenlightAnonyMouse', 'massmo233'):
 			set_setting('update.username', 'massimo233')
 			updated = True
-		if legacy_location in (None, '', 'FenlightAnonyMouse.github.io', 'Slzstream.github.io/packages', 'massimo233.github.io/Slzstream.github.io'):
-			set_setting('update.location', 'Slzstream.github.io')
+		if legacy_location in (None, '', 'FenlightAnonyMouse.github.io', 'Slzstream.github.io/packages', 'Slzstream.github.io', 'massimo233.github.io/Slzstream.github.io'):
+			set_setting('update.location', 'slzstream')
 			updated = True
 		if updated:
 			kodi_utils.notification('FenLight AM update source refreshed', 3000)
@@ -82,7 +82,7 @@ class OnUpdateChanges:
 	def migrate_update_branch(self):
 		location = (get_setting('fenlight.update.location') or get_setting('update.location') or '').replace('/packages', '').strip('/')
 		branch = (get_setting('fenlight.update.branch') or get_setting('update.branch') or 'main').strip()
-		if location == 'Slzstream.github.io' and branch == 'main':
+		if location in ('Slzstream.github.io', 'slzstream') and branch == 'main':
 			set_setting('update.branch', 'dev')
 			kodi_utils.notification('FenLightAM update branch set to dev', 3500)
 
