@@ -1,3 +1,7 @@
+[COLOR dodgerblue][B]Version 3.0.9[/B][/COLOR]
+- Fixed 7plus runtime bootstrap using the correct slyguy.7plus addon context inside FenLightAM.
+- Component install no longer fails when runtime needs a Kodi restart to finish loading.
+
 [COLOR dodgerblue][B]Version 3.0.8[/B][/COLOR]
 - Fixed 7plus infinite recursion crash in runtime bootstrap.
 - Patched SlyGuy to skip repository.slyguy requirement that broke the proxy service.

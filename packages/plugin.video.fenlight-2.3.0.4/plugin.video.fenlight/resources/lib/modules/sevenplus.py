@@ -28,14 +28,24 @@ def _addon_modules_path(addon_id):
 	return os.path.join(ADDONS_PATH, addon_id, 'resources', 'modules')
 
 
+def _clear_slyguy_modules():
+	for name in list(sys.modules):
+		if name == 'slyguy' or name.startswith('slyguy.'):
+			del sys.modules[name]
+
+
 def bootstrap_runtime():
+	paths = []
 	for addon_id in (ADDON_DEPS, ADDON_SLYGUY):
 		modules_path = _addon_modules_path(addon_id)
-		if k.path_exists(modules_path) and modules_path not in sys.path:
+		if k.path_exists(modules_path):
+			paths.append(modules_path)
+	sevenplus_root = os.path.join(ADDONS_PATH, ADDON_7PLUS)
+	if k.path_exists(sevenplus_root):
+		paths.append(sevenplus_root)
+	for modules_path in reversed(paths):
+		if modules_path not in sys.path:
 			sys.path.insert(0, modules_path)
-	sevenplus_path = os.path.join(ADDONS_PATH, ADDON_7PLUS, 'resources', 'lib')
-	if k.path_exists(sevenplus_path) and sevenplus_path not in sys.path:
-		sys.path.insert(0, sevenplus_path)
 	os.environ['ADDON_ID'] = ADDON_7PLUS
 	return True
 
@@ -44,13 +54,24 @@ def runtime_ready(force=False):
 	global _runtime_ready
 	if force:
 		_runtime_ready = None
+		_clear_slyguy_modules()
 	if _runtime_ready is not None:
 		return _runtime_ready
 	bootstrap_runtime()
 	try:
-		import slyguy  # noqa: F401
-		_runtime_ready = True
-	except ImportError as e:
+		import xbmcaddon as xbmcaddon_module
+		_original_addon = xbmcaddon_module.Addon
+
+		def _default_addon(addon_id=None):
+			return _original_addon(addon_id or ADDON_7PLUS)
+
+		xbmcaddon_module.Addon = _default_addon
+		try:
+			import slyguy  # noqa: F401
+			_runtime_ready = True
+		finally:
+			xbmcaddon_module.Addon = _original_addon
+	except Exception as e:
 		k.logger('7plus Bootstrap Error', str(e))
 		_runtime_ready = False
 	return _runtime_ready
@@ -165,7 +186,7 @@ def install_dependencies(retry=False):
 	if not retry and not k.confirm_dialog(heading=heading, text=text):
 		return
 	status = updater.install_bundled_dependencies(silent=False, force=retry)
-	if status.get('success') and runtime_ready(force=True) and addons_installed():
+	if status.get('success') and runtime_ready(force=True):
 		k.notification('7plus components ready', 3500)
 		return dispatch({'mode': 'sevenplus.dispatch'})
 	text = 'Could not install all 7plus components.'
@@ -173,7 +194,9 @@ def install_dependencies(retry=False):
 		text += '[CR][CR]Installed: %s' % ', '.join(status['installed'])
 	if status.get('failed'):
 		text += '[CR][CR]Failed: %s' % ', '.join(status['failed'])
-	if not runtime_ready():
+	if status.get('pending_restart'):
+		text += '[CR][CR]Components are installed. Restart Kodi, then open 7plus again.'
+	elif not runtime_ready(force=True):
 		text += '[CR][CR]The SlyGuy Python module could not be loaded. Restart Kodi and try again.'
 	return k.ok_dialog(heading=heading, text=text)
 

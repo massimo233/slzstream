@@ -1,9 +1,10 @@
+import os
 import sys
 import xbmc, xbmcaddon
 
 DEPENDENCIES_ADDON_ID = 'slyguy.dependencies'
 COMMON_ADDON_ID = 'script.module.slyguy'
-ADDON_ID = xbmcaddon.Addon().getAddonInfo('id')
+ADDON_ID = os.environ.get('ADDON_ID') or xbmcaddon.Addon().getAddonInfo('id')
 monitor = xbmc.Monitor()
 
 # fix for asyncio crashes

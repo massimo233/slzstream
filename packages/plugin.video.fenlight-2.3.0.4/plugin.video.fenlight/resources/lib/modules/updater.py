@@ -293,10 +293,18 @@ def _enable_dependency_addons(addon_ids):
 
 def _verify_sevenplus_runtime(installed):
 	from modules import sevenplus
-	if sevenplus.runtime_ready(force=True):
-		return installed, []
+	kodi_utils.update_local_addons()
+	kodi_utils.sleep(1500)
+	for attempt in range(3):
+		if sevenplus.runtime_ready(force=True):
+			return installed, [], False
+		if attempt < 2:
+			kodi_utils.sleep(1500)
+	if all(sevenplus._dependency_ready(dep) for dep in sevenplus.BUNDLED_DEPENDENCIES):
+		logger('Fen Light 7plus Dependency', 'Components installed; runtime will finish loading after Kodi restart')
+		return installed, [], True
 	logger('Fen Light 7plus Dependency Error', 'SlyGuy Python module failed to load after install')
-	return installed, ['slyguy runtime']
+	return installed, ['slyguy runtime'], False
 
 def install_bundled_dependencies(silent=False, force=False):
 	addons_path = kodi_utils.translate_path('special://home/addons/')
@@ -304,12 +312,17 @@ def install_bundled_dependencies(silent=False, force=False):
 	if not kodi_utils.path_exists(packages_path):
 		kodi_utils.make_directory(packages_path)
 	from modules import sevenplus
+	pending_restart = False
 	if all(_dependency_ready(dep, addons_path) for dep in BUNDLED_DEPENDENCIES) and not force:
 		_enable_dependency_addons([dep['id'] for dep in BUNDLED_DEPENDENCIES])
 		kodi_utils.update_local_addons()
 		if sevenplus.runtime_ready(force=True):
 			kodi_utils.notification('7plus components ready', 3500)
-			return {'success': True, 'installed': [], 'failed': []}
+			return {'success': True, 'installed': [], 'failed': [], 'pending_restart': False}
+		_, _, pending_restart = _verify_sevenplus_runtime([])
+		if pending_restart:
+			kodi_utils.notification('Restart Kodi to finish 7plus setup', 5000)
+			return {'success': True, 'installed': [], 'failed': [], 'pending_restart': True}
 	installed = []
 	failed = []
 	for dep in BUNDLED_DEPENDENCIES:
@@ -345,12 +358,14 @@ def install_bundled_dependencies(silent=False, force=False):
 		installed.append(dep['id'])
 	if installed:
 		kodi_utils.update_local_addons()
-		_enable_dependency_addons(installed)
+		_enable_dependency_addons([dep['id'] for dep in BUNDLED_DEPENDENCIES])
 		kodi_utils.update_kodi_addons_db()
-		installed, runtime_failed = _verify_sevenplus_runtime(installed)
+		installed, runtime_failed, pending_restart = _verify_sevenplus_runtime(installed)
 		failed.extend(runtime_failed)
 	if installed:
 		kodi_utils.notification('7plus components installed: %s' % ', '.join(installed), 5000)
+	if pending_restart:
+		kodi_utils.notification('Restart Kodi to finish 7plus setup', 5000)
 	if failed:
 		kodi_utils.notification('7plus install failed: %s' % ', '.join(failed), 5000)
-	return {'success': not failed, 'installed': installed, 'failed': failed}
+	return {'success': not failed, 'installed': installed, 'failed': failed, 'pending_restart': pending_restart}
