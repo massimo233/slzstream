@@ -54,6 +54,26 @@ def _validate_fenlight_zip(zip_location):
 		logger('Fen Light Updater Error', 'Zip validation failed: %s' % str(e))
 		return False
 
+def _bundled_packages_path():
+	return path.join(kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/'), 'resources', 'packages')
+
+def _dependency_ready(dep, addons_path):
+	return kodi_utils.path_exists(path.join(addons_path, dep['folder'], 'addon.xml'))
+
+def _stage_package_zip(dep, packages_path):
+	zip_location = path.join(packages_path, dep['zip'])
+	local_zip = path.join(_bundled_packages_path(), dep['zip'])
+	if kodi_utils.path_exists(local_zip):
+		try:
+			shutil.copyfile(local_zip, zip_location)
+			return zip_location
+		except Exception as e:
+			logger('Fen Light 7plus Dependency Error', 'Local copy failed for %s: %s' % (dep['zip'], str(e)))
+	url = get_location(dep['zip'])
+	if _download_package(url, zip_location):
+		return zip_location
+	return None
+
 def _download_package(url, zip_location):
 	try:
 		result = requests.get(url, timeout=120)
@@ -72,6 +92,15 @@ def _download_package(url, zip_location):
 	with open(zip_location, 'wb') as handle:
 		handle.write(result.content)
 	return True
+
+def _format_dependency_status(status):
+	if status.get('installed'):
+		text = '[CR][CR]Installed 7plus components: [B]%s[/B]' % ', '.join(status['installed'])
+	else:
+		text = ''
+	if status.get('failed'):
+		text += '[CR][CR]7plus component install failed: [B]%s[/B]' % ', '.join(status['failed'])
+	return text
 
 def get_versions():
 	try:
@@ -169,57 +198,67 @@ def update_addon(new_version, action, show_after_action=True):
 	success = unzip(zip_location, kodi_utils.translate_path('special://home/addons/'), kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/'))
 	kodi_utils.delete_file(zip_location)
 	if not success: return kodi_utils.ok_dialog(heading='Fen Light Updater', text='Error Updating.[CR]Please install new update manually')
-	if action == 5:
-		set_setting('update.action', '3')
-		kodi_utils.ok_dialog(heading='Fen Light Updater', text='[CR]Success.[CR]Fen Light rolled back to version [B]%s[/B]' % new_version)
-	elif action in (0, 4):
-		if show_after_action:
-			if kodi_utils.confirm_dialog(heading='Fen Light Updater', text='[CR]Success.[CR]Fen Light updated to version [B]%s[/B]' % new_version,
-										ok_label='Changelog', cancel_label='Exit', default_control=10) != False:
-				kodi_utils.show_text('Changelog', file=kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/resources/text/changelog.txt'), font_size='large')
-		else:
-			kodi_utils.ok_dialog(heading='Fen Light Updater', text='[CR]Success.[CR]Fen Light updated to version [B]%s[/B]' % new_version)
 	kodi_utils.update_local_addons()
 	kodi_utils.disable_enable_addon()
 	kodi_utils.update_kodi_addons_db()
 	from caches.navigator_cache import navigator_cache
 	navigator_cache.sync_default_menus(notify=True)
-	install_bundled_dependencies(silent=True)
+	kodi_utils.show_busy_dialog()
+	dep_status = install_bundled_dependencies(silent=True)
+	kodi_utils.hide_busy_dialog()
+	dep_text = _format_dependency_status(dep_status)
+	if action == 5:
+		set_setting('update.action', '3')
+		kodi_utils.ok_dialog(heading='Fen Light Updater', text='[CR]Success.[CR]Fen Light rolled back to version [B]%s[/B]' % new_version)
+	elif action in (0, 4):
+		success_text = '[CR]Success.[CR]Fen Light updated to version [B]%s[/B]%s' % (new_version, dep_text)
+		if show_after_action:
+			if kodi_utils.confirm_dialog(heading='Fen Light Updater', text=success_text, ok_label='Changelog', cancel_label='Exit', default_control=10) != False:
+				kodi_utils.show_text('Changelog', file=kodi_utils.translate_path('special://home/addons/plugin.video.fenlight/resources/text/changelog.txt'), font_size='large')
+		else:
+			kodi_utils.ok_dialog(heading='Fen Light Updater', text=success_text)
 	kodi_utils.refresh_widgets()
 
 def install_bundled_dependencies(silent=False):
 	addons_path = kodi_utils.translate_path('special://home/addons/')
 	packages_path = kodi_utils.translate_path('special://home/addons/packages/')
-	installed_any = False
-	failed = False
+	if not kodi_utils.path_exists(packages_path):
+		kodi_utils.make_directory(packages_path)
+	installed = []
+	failed = []
 	for dep in BUNDLED_DEPENDENCIES:
-		if kodi_utils.addon_installed(dep['id']):
+		if _dependency_ready(dep, addons_path):
 			continue
 		if not silent:
 			kodi_utils.notification('Installing %s...' % dep['id'], 2500)
-		url = get_location(dep['zip'])
-		zip_location = path.join(packages_path, dep['zip'])
-		if not _download_package(url, zip_location):
-			failed = True
+		zip_location = _stage_package_zip(dep, packages_path)
+		if not zip_location:
+			logger('Fen Light 7plus Dependency Error', 'Could not stage %s' % dep['zip'])
+			failed.append(dep['id'])
 			continue
 		try:
 			with ZipFile(zip_location) as zip_file:
 				if not _zip_has_member(zip_file, dep['check']):
+					logger('Fen Light 7plus Dependency Error', 'Invalid package contents for %s' % dep['zip'])
 					kodi_utils.delete_file(zip_location)
-					failed = True
+					failed.append(dep['id'])
 					continue
 		except Exception as e:
 			logger('Fen Light 7plus Dependency Error', '%s: %s' % (dep['zip'], str(e)))
 			kodi_utils.delete_file(zip_location)
-			failed = True
+			failed.append(dep['id'])
 			continue
-		success = unzip(zip_location, addons_path, path.join(addons_path, dep['folder']), show_busy=not silent)
+		dest_folder = path.join(addons_path, dep['folder'])
+		if kodi_utils.path_exists(dest_folder):
+			shutil.rmtree(dest_folder)
+		success = unzip(zip_location, addons_path, path.join(addons_path, dep['folder'], 'addon.xml'), show_busy=not silent)
 		kodi_utils.delete_file(zip_location)
 		if not success:
-			failed = True
+			logger('Fen Light 7plus Dependency Error', 'Extract failed for %s' % dep['id'])
+			failed.append(dep['id'])
 			continue
-		installed_any = True
-	if installed_any:
+		installed.append(dep['id'])
+	if installed:
 		kodi_utils.update_local_addons()
 		kodi_utils.update_kodi_addons_db()
-	return not failed
+	return {'success': not failed, 'installed': installed, 'failed': failed}

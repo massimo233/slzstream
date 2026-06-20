@@ -1,6 +1,9 @@
 [COLOR darkgoldenrod]GOD BLESS HIM AND KEEP HIM SAFE.[/COLOR]
 
 
+[COLOR dodgerblue][B]Version 3.0.3[/B][/COLOR]
+- Bundle 7plus component zips inside FenLightAM and install them automatically during update (no separate download step).
+
 [COLOR dodgerblue][B]Version 3.0.2[/B][/COLOR]
 - Auto-add new menu items (including 7plus) to existing FenLightAM main menus after update.
 

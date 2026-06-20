@@ -23,10 +23,18 @@ _original_build_url = None
 
 
 def addons_installed():
-	return k.addon_installed(ADDON_DEPS) and k.addon_installed(ADDON_SLYGUY) and k.addon_installed(ADDON_7PLUS)
+	return all(_dependency_ready(dep) for dep in BUNDLED_DEPENDENCIES)
+
+
+def _dependency_ready(dep):
+	addon_xml = os.path.join(k.translate_path('special://home/addons/'), dep['folder'], 'addon.xml')
+	return k.path_exists(addon_xml)
 
 
 def get_icon():
+	local_icon = os.path.join(k.addon_info('path'), 'resources', 'media', 'icons', '7plus.png')
+	if k.path_exists(local_icon):
+		return k.translate_path(local_icon)
 	try:
 		return xbmcaddon.Addon(ADDON_7PLUS).getAddonInfo('icon')
 	except:
@@ -111,13 +119,14 @@ def open_settings():
 
 def install_dependencies():
 	from modules import updater
-	if not k.confirm_dialog(heading='7plus', text='7plus requires additional components from Slzstream.[CR][CR]Install them now?'):
-		return
-	result = updater.install_bundled_dependencies()
-	if result and addons_installed():
+	status = updater.install_bundled_dependencies(silent=False)
+	if status.get('success') and addons_installed():
 		k.notification('7plus components installed', 3000)
 		return dispatch({'mode': 'sevenplus.dispatch'})
-	return k.ok_dialog(heading='7plus', text='Could not install all 7plus components.[CR][CR]Try updating FenLightAM from Tools, or install the zips from the Slzstream repo manually.')
+	text = 'Could not install all 7plus components.'
+	if status.get('failed'):
+		text += '[CR][CR]Failed: %s' % ', '.join(status['failed'])
+	return k.ok_dialog(heading='7plus', text=text)
 
 
 def menu_items():
